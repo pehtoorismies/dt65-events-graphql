@@ -1,11 +1,12 @@
 import { prisma } from './generated/prisma-client';
 import datamodelInfo from './generated/nexus-prisma';
 import * as path from 'path';
-import * as jwt from 'jsonwebtoken';
-import { AuthenticationError } from 'apollo-server-core';
+import { UserInputError, ApolloError } from 'apollo-server-core';
 import { stringArg, idArg } from 'nexus';
 import { prismaObjectType, makePrismaSchema } from 'nexus-prisma';
 import { GraphQLServer } from 'graphql-yoga';
+import { config } from './config';
+import { createAuthZeroUser } from './auth-zero';
 
 const Query = prismaObjectType({
   name: 'Query',
@@ -26,9 +27,55 @@ const Query = prismaObjectType({
 
 const Mutation = prismaObjectType({
   name: 'Mutation',
+
   definition(t) {
-    t.prismaFields(['createUser']);
-    t.field('joinEvent', {
+    // t.prismaFields(['createUser']);
+    t.field('register', {
+      type: 'User',
+      args: {
+        email: stringArg(),
+        username: stringArg(),
+        password: stringArg(),
+        name: stringArg(),
+        registerSecret: stringArg(),
+      },
+      resolve: async (
+        _,
+        { email, username, password, name, registerSecret },
+        ctx,
+      ) => {
+        if (config.registerSecret !== registerSecret) {
+          return new UserInputError('Wrong register secret');
+        }
+        const auth0User = await createAuthZeroUser(email, username, password);
+        if (!auth0User) {
+          return new ApolloError('Auth0 error');
+        }
+        return ctx.prisma.createUser({
+          name,
+          username,
+          email,
+        });
+      },
+    }),
+      t.field('joinEvent', {
+        type: 'Event',
+        args: {
+          eventId: idArg(),
+          username: stringArg(),
+        },
+        resolve: (_, { eventId, username }, ctx) =>
+          ctx.prisma.updateEvent({
+            where: { id: eventId },
+            data: {
+              participants: {
+                connect: { username },
+              },
+            },
+          }),
+      });
+    // get username from jwt
+    t.field('unjoinEvent', {
       type: 'Event',
       args: {
         eventId: idArg(),
@@ -39,7 +86,7 @@ const Mutation = prismaObjectType({
           where: { id: eventId },
           data: {
             participants: {
-              connect: { username },
+              disconnect: { username },
             },
           },
         }),
