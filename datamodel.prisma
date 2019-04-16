@@ -1,0 +1,43 @@
+type User {
+  id: ID! @id
+  email: String @unique
+  username: String @unique
+  name: String!
+  results: [Result!]! @relation(link: INLINE)
+}
+
+type Result {
+  id: ID! @id
+  title: String!
+  public: Boolean! @default(value: false)
+  author: User
+  number: String,
+  unit: String
+  notes: String
+  date: DateTime!
+}
+
+enum EventType {
+  Running
+  Triathlon
+  Swimming
+  Orienteering
+  Ultras
+  Other
+  Meeting
+  Skiing
+  Spinning
+  TrackRunning
+}
+
+type Event {
+  id: ID! @id
+  title: String!
+  date: DateTime!
+  time: String
+  address: String
+  description: String
+  race: Boolean! @default(value: false)
+  type: EventType!
+  participants: [User!]! @relation(link: INLINE)
+}
