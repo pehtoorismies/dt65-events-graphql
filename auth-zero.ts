@@ -14,10 +14,6 @@ const createAuthZeroUser = async (
   username: string,
   password: string,
 ) => {
-  console.log('email', email);
-  console.log('username', username);
-  console.log('password', password);
-
   // valid user => create to Auth0
   const client = await auth0.clientCredentialsGrant({
     audience: `https://${domain}/api/v2/`,
@@ -32,6 +28,12 @@ const createAuthZeroUser = async (
       email,
       password,
       username,
+      verify_email: true,
+      email_verified: false,
+      user_metadata: {
+        username,
+      },
+      app_metadata: { role: 'USER' },
     })
     .catch((err: Error) => {
       console.error(err);

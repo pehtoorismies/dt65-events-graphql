@@ -25,6 +25,8 @@ const Query = prismaObjectType({
   },
 });
 
+const argIsRequired = { required: true };
+
 const Mutation = prismaObjectType({
   name: 'Mutation',
 
@@ -33,11 +35,11 @@ const Mutation = prismaObjectType({
     t.field('register', {
       type: 'User',
       args: {
-        email: stringArg(),
-        username: stringArg(),
-        password: stringArg(),
-        name: stringArg(),
-        registerSecret: stringArg(),
+        email: stringArg(argIsRequired),
+        username: stringArg(argIsRequired),
+        password: stringArg(argIsRequired),
+        name: stringArg(argIsRequired),
+        registerSecret: stringArg(argIsRequired),
       },
       resolve: async (
         _,
@@ -51,10 +53,13 @@ const Mutation = prismaObjectType({
         if (!auth0User) {
           return new ApolloError('Auth0 error');
         }
+        const { user_id: auth0Id } = auth0User;
+
         return ctx.prisma.createUser({
           name,
           username,
           email,
+          auth0Id,
         });
       },
     }),
