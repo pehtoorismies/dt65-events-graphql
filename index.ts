@@ -1,7 +1,13 @@
 import { prisma } from './generated/prisma-client';
 import datamodelInfo from './generated/nexus-prisma';
+import { formatError, GraphQLError } from 'graphql';
 import * as path from 'path';
-import { UserInputError, ApolloError } from 'apollo-server-core';
+import {
+  UserInputError,
+  ApolloError,
+  ValidationError,
+  formatApolloErrors,
+} from 'apollo-server-core';
 import { stringArg, idArg } from 'nexus';
 import { prismaObjectType, makePrismaSchema } from 'nexus-prisma';
 import { GraphQLServer } from 'graphql-yoga';
@@ -47,7 +53,9 @@ const Mutation = prismaObjectType({
         ctx,
       ) => {
         if (config.registerSecret !== registerSecret) {
-          return new UserInputError('Wrong register secret');
+          return new UserInputError('Wrongi register secret', {
+            invalidArgs: ['secret'],
+          });
         }
         const auth0User = await createAuthZeroUser(email, username, password);
         if (!auth0User) {
@@ -148,4 +156,18 @@ const server = new GraphQLServer({
 //   });
 // });
 
-server.start(() => console.log('Server is running on http://localhost:4000'));
+const options = {
+  port: 4000,
+  endpoint: '/graphql',
+  subscriptions: '/subscriptions',
+  playground: '/playground',
+  formatError: (err: GraphQLError) => formatApolloErrors([err]),
+};
+
+server.start(options, ({ port }) =>
+  console.log(
+    `Server started, listening on port ${port} for incoming requests.`,
+  ),
+);
+
+// server.start(() => console.log('Server is running on http://localhost:4000'));
