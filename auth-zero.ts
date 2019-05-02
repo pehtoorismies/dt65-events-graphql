@@ -9,6 +9,21 @@ const auth0 = new AuthenticationClient({
   clientSecret,
 });
 
+const loginAuthZeroUser = async (username: string, password: string) => {
+  const authZeroUser = await auth0.passwordGrant({
+    password,
+    username,
+    scope: 'read:events write:events email openid',
+    audience: 'https://graphql-dev.downtown65.com',
+  });
+
+  return {
+    accessToken: authZeroUser.access_token,
+    idToken: authZeroUser.id_token,
+    expiresIn: authZeroUser.expires_in,
+  };
+};
+
 const createAuthZeroUser = async (
   email: string,
   username: string,
@@ -42,4 +57,4 @@ const createAuthZeroUser = async (
   return authZeroUser;
 };
 
-export { createAuthZeroUser };
+export { createAuthZeroUser, loginAuthZeroUser };

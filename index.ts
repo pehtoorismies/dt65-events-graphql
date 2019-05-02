@@ -1,18 +1,13 @@
 import { prisma } from './generated/prisma-client';
 import datamodelInfo from './generated/nexus-prisma';
-import { formatError, GraphQLError } from 'graphql';
+import { formatError } from 'apollo-errors';
 import * as path from 'path';
-import {
-  UserInputError,
-  ApolloError,
-  ValidationError,
-  formatApolloErrors,
-} from 'apollo-server-core';
-import { stringArg, idArg } from 'nexus';
+import { stringArg, idArg, objectType } from 'nexus';
 import { prismaObjectType, makePrismaSchema } from 'nexus-prisma';
 import { GraphQLServer } from 'graphql-yoga';
+import { UserInputError, Auth0Error } from './errors';
 import { config } from './config';
-import { createAuthZeroUser } from './auth-zero';
+import { createAuthZeroUser, loginAuthZeroUser } from './auth-zero';
 
 const Query = prismaObjectType({
   name: 'Query',
@@ -33,44 +28,70 @@ const Query = prismaObjectType({
 
 const argIsRequired = { required: true };
 
+const AuthUser = objectType({
+  name: 'AuthUser',
+  definition(t) {
+    t.string('idToken');
+    t.string('accessToken');
+    t.int('expiresIn');
+  },
+});
+
 const Mutation = prismaObjectType({
   name: 'Mutation',
 
   definition(t) {
     // t.prismaFields(['createUser']);
-    t.field('register', {
-      type: 'User',
+    t.field('login', {
+      type: 'AuthUser',
       args: {
-        email: stringArg(argIsRequired),
         username: stringArg(argIsRequired),
         password: stringArg(argIsRequired),
-        name: stringArg(argIsRequired),
-        registerSecret: stringArg(argIsRequired),
       },
-      resolve: async (
-        _,
-        { email, username, password, name, registerSecret },
-        ctx,
-      ) => {
-        if (config.registerSecret !== registerSecret) {
-          return new UserInputError('Wrongi register secret', {
-            invalidArgs: ['secret'],
-          });
+      resolve: async (_, { username, password }, ctx) => {
+        try {
+          const authZeroUser = await loginAuthZeroUser(username, password);
+          return authZeroUser;
+        } catch (error) {
+          return new Auth0Error();
         }
-        const auth0User = await createAuthZeroUser(email, username, password);
-        if (!auth0User) {
-          return new ApolloError('Auth0 error');
-        }
-        const { user_id: auth0Id } = auth0User;
-
-        return ctx.prisma.createUser({
-          name,
-          username,
-          email,
-          auth0Id,
-        });
       },
     }),
+      t.field('register', {
+        type: 'User',
+        args: {
+          email: stringArg(argIsRequired),
+          username: stringArg(argIsRequired),
+          password: stringArg(argIsRequired),
+          name: stringArg(argIsRequired),
+          registerSecret: stringArg(argIsRequired),
+        },
+        resolve: async (
+          _,
+          { email, username, password, name, registerSecret },
+          ctx,
+        ) => {
+          if (config.registerSecret !== registerSecret) {
+            return new UserInputError({
+              data: {
+                registerSecret: 'Väärä rekisteröintikoodi',
+              },
+            });
+          }
+          const auth0User = await createAuthZeroUser(email, username, password);
+          if (!auth0User) {
+            return new Auth0Error();
+          }
+          const { user_id: auth0Id } = auth0User;
+
+          return ctx.prisma.createUser({
+            name,
+            username,
+            email,
+            auth0Id,
+          });
+        },
+      }),
       t.field('joinEvent', {
         type: 'Event',
         args: {
@@ -108,7 +129,7 @@ const Mutation = prismaObjectType({
 });
 
 const schema = makePrismaSchema({
-  types: [Mutation, Query],
+  types: [Mutation, Query, AuthUser],
 
   prisma: {
     datamodelInfo,
@@ -161,7 +182,7 @@ const options = {
   endpoint: '/graphql',
   subscriptions: '/subscriptions',
   playground: '/playground',
-  formatError: (err: GraphQLError) => formatApolloErrors([err]),
+  formatError,
 };
 
 server.start(options, ({ port }) =>
