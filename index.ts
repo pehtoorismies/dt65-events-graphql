@@ -1,13 +1,23 @@
 import { prisma } from './generated/prisma-client';
 import datamodelInfo from './generated/nexus-prisma';
+import * as R from 'ramda';
 import { formatError } from 'apollo-errors';
 import * as path from 'path';
 import { stringArg, idArg, objectType } from 'nexus';
 import { prismaObjectType, makePrismaSchema } from 'nexus-prisma';
 import { GraphQLServer } from 'graphql-yoga';
+import * as jwt from 'jsonwebtoken';
+import { getMatchingPubKey, getScopes } from './util';
 import { UserInputError, Auth0Error } from './errors';
 import { config } from './config';
 import { createAuthZeroUser, loginAuthZeroUser } from './auth-zero';
+
+const getBearerToken = R.pipe(
+  R.defaultTo(''),
+  R.split('Bearer'),
+  R.last,
+  R.trim,
+);
 
 const Query = prismaObjectType({
   name: 'Query',
@@ -41,7 +51,7 @@ const Mutation = prismaObjectType({
   name: 'Mutation',
 
   definition(t) {
-    // t.prismaFields(['createUser']);
+    t.prismaFields(['createEvent']);
     t.field('login', {
       type: 'AuthUser',
       args: {
@@ -53,6 +63,7 @@ const Mutation = prismaObjectType({
           const authZeroUser = await loginAuthZeroUser(username, password);
           return authZeroUser;
         } catch (error) {
+          console.log(error);
           return new Auth0Error();
         }
       },
@@ -142,40 +153,52 @@ const schema = makePrismaSchema({
   },
 });
 
-// const autheticate = async (resolve, root, args, context, info) => {
-//   console.log('***');
-//   console.log(info.fieldName);
-//   console.log(info.operation);
-//   console.log('/***');
-//   let token;
-//   try {
-//     token = jwt.verify(context.request.get('Authorization'), 'secret');
-//   } catch (e) {
-//     return new AuthenticationError('Not authorised');
-//   }
-//   const result = await resolve(root, args, context, info);
-//   return result;
-// };
+const getKID = R.path(['header', 'kid']);
+
+const addAuthRoles = async (resolve, root, args, context, info) => {
+  // console.log('***');
+  // console.log(info.fieldName);
+  // console.log(info.operation);
+  // console.log('/***');
+
+  const authHeader = context.request.get('Authorization');
+  const jwtToken = getBearerToken(authHeader);
+  if (!jwtToken) {
+    const result = await resolve(root, args, context, info);
+    return result;
+  }
+
+  const decodedToken = jwt.decode(jwtToken, { complete: true });
+  const kid = String(getKID(decodedToken));
+
+  if (!kid) {
+    return new Error('Malformed token');
+  }
+  const pubkey = await getMatchingPubKey(kid);
+
+  try {
+    const token = jwt.verify(jwtToken, pubkey, {
+      audience: 'https://graphql-dev.downtown65.com',
+      issuer: `https://${config.auth.domain}/`,
+      algorithms: ['RS256'],
+    });
+    const scopes: string[] = getScopes(token.scope);
+    const updatedContext = {
+      ...context,
+      scopes,
+    };
+    const result = await resolve(root, args, updatedContext, info);
+    return result;
+  } catch (e) {
+    return new Error('Not authorised');
+  }
+};
 
 const server = new GraphQLServer({
   schema,
   context: req => ({ ...req, prisma }),
-  // middlewares: [autheticate],
+  middlewares: [addAuthRoles],
 });
-
-// server.express.use((req, res, next) => {
-//   console.log(req)
-//   const { authorization } = req.headers;
-//   jwt.verify(authorization, 'secret', (err: Error, decodedToken: string) => {
-//     console.log(err);
-//     console.log(decodedToken);
-//     if (err || !decodedToken) {
-//       res.status(401).send('not authorized');
-//       return;
-//     }
-//     next();
-//   });
-// });
 
 const options = {
   port: 4000,

@@ -1,5 +1,8 @@
 import { ManagementClient, AuthenticationClient } from 'auth0';
+import * as R from 'ramda';
+import * as jwt from 'jsonwebtoken';
 import { config } from './config';
+
 
 const { domain, clientId, clientSecret } = config.auth;
 
@@ -9,6 +12,8 @@ const auth0 = new AuthenticationClient({
   clientSecret,
 });
 
+
+
 const loginAuthZeroUser = async (username: string, password: string) => {
   const authZeroUser = await auth0.passwordGrant({
     password,
@@ -16,7 +21,7 @@ const loginAuthZeroUser = async (username: string, password: string) => {
     scope: 'read:events write:events email openid',
     audience: 'https://graphql-dev.downtown65.com',
   });
-
+  
   return {
     accessToken: authZeroUser.access_token,
     idToken: authZeroUser.id_token,
