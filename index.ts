@@ -44,6 +44,8 @@ const Mutation = prismaObjectType({
 
   definition(t) {
     t.prismaFields(['createEvent']);
+    t.prismaFields(['deleteEvent']);
+    t.prismaFields(['updateEvent']);
     t.field('login', {
       type: 'AuthUser',
       args: {

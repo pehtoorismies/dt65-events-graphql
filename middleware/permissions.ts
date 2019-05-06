@@ -8,8 +8,6 @@ interface Context {
 
 export const verifyRole = (role: string, context: Context): boolean => {
   const scopes = context.scopes || [];
-  console.log('scopes', scopes);
-  console.log('role', role);
   if (RA.isNilOrEmpty(role)) {
     return true;
   }
@@ -21,7 +19,6 @@ const rules = {
     return verifyRole('read:users', context);
   }),
   isEventReader: rule()(async (parent, { id }, context) => {
-    console.log('Verify reader?');
     return verifyRole('read:events', context);
   }),
   isEventWriter: rule()(async (parent, { id }, context) => {
@@ -36,6 +33,8 @@ const permissions = shield({
   },
   Mutation: {
     createEvent: rules.isEventWriter,
+    deleteEvent: rules.isEventWriter,
+    updateEvent: rules.isEventWriter,
     joinEvent: rules.isEventWriter,
     unjoinEvent: rules.isEventWriter,
   },
