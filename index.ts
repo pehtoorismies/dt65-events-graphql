@@ -6,18 +6,10 @@ import * as path from 'path';
 import { stringArg, idArg, objectType } from 'nexus';
 import { prismaObjectType, makePrismaSchema } from 'nexus-prisma';
 import { GraphQLServer } from 'graphql-yoga';
-import * as jwt from 'jsonwebtoken';
-import { getMatchingPubKey, getScopes } from './util';
-import { UserInputError, Auth0Error } from './errors';
+import { UserInputError, Auth0Error, AuthorizationError } from './errors';
 import { config } from './config';
 import { createAuthZeroUser, loginAuthZeroUser } from './auth-zero';
-
-const getBearerToken = R.pipe(
-  R.defaultTo(''),
-  R.split('Bearer'),
-  R.last,
-  R.trim,
-);
+import { permissions, requestScopes } from './middleware';
 
 const Query = prismaObjectType({
   name: 'Query',
@@ -109,15 +101,16 @@ const Mutation = prismaObjectType({
           eventId: idArg(),
           username: stringArg(),
         },
-        resolve: (_, { eventId, username }, ctx) =>
-          ctx.prisma.updateEvent({
+        resolve: (_, { eventId, username }, ctx) => {
+          return ctx.prisma.updateEvent({
             where: { id: eventId },
             data: {
               participants: {
                 connect: { username },
               },
             },
-          }),
+          });
+        },
       });
     // get username from jwt
     t.field('unjoinEvent', {
@@ -126,15 +119,16 @@ const Mutation = prismaObjectType({
         eventId: idArg(),
         username: stringArg(),
       },
-      resolve: (_, { eventId, username }, ctx) =>
-        ctx.prisma.updateEvent({
+      resolve: (_, { eventId, username }, ctx) => {
+        return ctx.prisma.updateEvent({
           where: { id: eventId },
           data: {
             participants: {
               disconnect: { username },
             },
           },
-        }),
+        });
+      },
     });
   },
 });
@@ -153,51 +147,10 @@ const schema = makePrismaSchema({
   },
 });
 
-const getKID = R.path(['header', 'kid']);
-
-const addAuthRoles = async (resolve, root, args, context, info) => {
-  // console.log('***');
-  // console.log(info.fieldName);
-  // console.log(info.operation);
-  // console.log('/***');
-
-  const authHeader = context.request.get('Authorization');
-  const jwtToken = getBearerToken(authHeader);
-  if (!jwtToken) {
-    const result = await resolve(root, args, context, info);
-    return result;
-  }
-
-  const decodedToken = jwt.decode(jwtToken, { complete: true });
-  const kid = String(getKID(decodedToken));
-
-  if (!kid) {
-    return new Error('Malformed token');
-  }
-  const pubkey = await getMatchingPubKey(kid);
-
-  try {
-    const token = jwt.verify(jwtToken, pubkey, {
-      audience: 'https://graphql-dev.downtown65.com',
-      issuer: `https://${config.auth.domain}/`,
-      algorithms: ['RS256'],
-    });
-    const scopes: string[] = getScopes(token.scope);
-    const updatedContext = {
-      ...context,
-      scopes,
-    };
-    const result = await resolve(root, args, updatedContext, info);
-    return result;
-  } catch (e) {
-    return new Error('Not authorised');
-  }
-};
-
 const server = new GraphQLServer({
   schema,
   context: req => ({ ...req, prisma }),
-  middlewares: [addAuthRoles],
+  middlewares: [requestScopes, permissions],
 });
 
 const options = {
@@ -213,5 +166,3 @@ server.start(options, ({ port }) =>
     `Server started, listening on port ${port} for incoming requests.`,
   ),
 );
-
-// server.start(() => console.log('Server is running on http://localhost:4000'));

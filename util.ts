@@ -36,3 +36,4 @@ export const getMatchingPubKey = async (kid: string) => {
     throw new Error('Unknown key id in token');
   }
 };
+

@@ -19,6 +19,7 @@
     "auth0": "^2.17.0",
     "dotenv": "^7.0.0",
     "graphql": "^14.2.1",
+    "graphql-shield": "^5.3.5",
     "graphql-yoga": "^1.17.4",
     "jsonwebtoken": "^8.5.1",
     "nexus": "^0.11.6",
@@ -26,6 +27,7 @@
     "parse-bearer-token": "^1.0.1",
     "prisma-client-lib": "^1.30.1",
     "ramda": "^0.26.1",
+    "ramda-adjunct": "^2.17.0",
     "request-promise": "^4.2.4"
   },
   "devDependencies": {

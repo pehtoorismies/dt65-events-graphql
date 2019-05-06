@@ -7,3 +7,7 @@ export const UserInputError = createError('UserInputError', {
 export const Auth0Error = createError('Auth0Error', {
   message: 'Auth0 error'
 });
+
+export const AuthorizationError = createError('AuthorizationError', {
+  message: 'Not enough privileges'
+});
