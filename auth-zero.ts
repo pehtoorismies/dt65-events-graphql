@@ -18,7 +18,7 @@ const loginAuthZeroUser = async (username: string, password: string) => {
   const authZeroUser = await auth0.passwordGrant({
     password,
     username,
-    scope: 'read:events write:events email openid',
+    scope: 'read:events write:events openid profile',
     audience: 'https://graphql-dev.downtown65.com',
   });
   

@@ -14,8 +14,7 @@ import { permissions, requestScopes } from './middleware';
 const Query = prismaObjectType({
   name: 'Query',
   definition(t) {
-    t.prismaFields(['users']);
-    t.prismaFields(['events']);
+    t.prismaFields(['users', 'events', 'event']);
     // t.list.field('feed', {
     //   type: 'Post',
     //   resolve: (_, args, ctx) => ctx.prisma.posts({ where: { published: true } })
@@ -43,9 +42,7 @@ const Mutation = prismaObjectType({
   name: 'Mutation',
 
   definition(t) {
-    t.prismaFields(['createEvent']);
-    t.prismaFields(['deleteEvent']);
-    t.prismaFields(['updateEvent']);
+    t.prismaFields(['createEvent', 'deleteEvent', 'updateEvent']);
     t.field('login', {
       type: 'AuthUser',
       args: {
@@ -57,7 +54,7 @@ const Mutation = prismaObjectType({
           const authZeroUser = await loginAuthZeroUser(username, password);
           return authZeroUser;
         } catch (error) {
-          console.log(error);
+          console.error(error);
           return new Auth0Error();
         }
       },

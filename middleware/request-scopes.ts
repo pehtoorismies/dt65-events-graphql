@@ -39,7 +39,6 @@ const requestScopes = async (resolve, root, args, context, info) => {
       issuer: `https://${config.auth.domain}/`,
       algorithms: ['RS256'],
     });
-    console.log('token', token)
     const scopes: string[] = getScopes(token.scope);
     const updatedContext = {
       ...context,

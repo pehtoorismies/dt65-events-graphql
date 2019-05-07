@@ -30,6 +30,7 @@ const permissions = shield({
   Query: {
     users: rules.isUserReader,
     events: rules.isEventReader,
+    event: rules.isEventReader,
   },
   Mutation: {
     createEvent: rules.isEventWriter,
