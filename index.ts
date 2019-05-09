@@ -54,6 +54,7 @@ const Mutation = prismaObjectType({
           const authZeroUser = await loginAuthZeroUser(username, password);
           return authZeroUser;
         } catch (error) {
+          
           console.error(error);
           return new Auth0Error();
         }

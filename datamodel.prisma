@@ -19,21 +19,23 @@ type Result {
 }
 
 enum EventType {
-  Running
-  Triathlon
-  Swimming
-  Orienteering
-  Ultras
-  Other
+  Karonkka
   Meeting
+  Orienteering
+  Other
+  Running
   Skiing
   Spinning
+  Swimming
   TrackRunning
+  Triathlon
+  Ultras
 }
 
 type Event {
   id: ID! @id
   title: String!
+  subtitle: String
   date: DateTime!
   time: String
   address: String

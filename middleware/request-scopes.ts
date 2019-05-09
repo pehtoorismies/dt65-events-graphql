@@ -19,6 +19,7 @@ const requestScopes = async (resolve, root, args, context, info) => {
   // console.log('/***');
 
   const authHeader = context.request.get('Authorization');
+  console.log('authHeader', authHeader)
   const jwtToken = getBearerToken(authHeader);
   if (!jwtToken) {
     const result = await resolve(root, args, context, info);
@@ -47,7 +48,8 @@ const requestScopes = async (resolve, root, args, context, info) => {
     const result = await resolve(root, args, updatedContext, info);
     return result;
   } catch (e) {
-    return new Error('Not authorised');
+    console.error(e);
+    return new Error('Not able to get public key');
   }
 };
 
